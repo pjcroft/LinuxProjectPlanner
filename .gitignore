@@ -1,0 +1,14 @@
+# Customer data, plans, exported documents, and local dependencies never go to GitHub.
+*.mpp
+*.pdf
+*.fieldplan
+projects/
+exports/
+docs/reference/
+.runtime/
+.venv/
+__pycache__/
+*.pyc
+.test-results/
+.agents/
+.codex/
