@@ -37,19 +37,19 @@ button:disabled {
   cursor: default;
 }
 .primary {
-  background: #216b5c;
-  color: white;
-  border-color: #216b5c;
+  background: #eeb85d;
+  color: #143e36;
+  border-color: #eeb85d;
 }
 .primary:hover {
-  background: #185648;
-  color: white;
+  background: #e1a641;
+  color: #143e36;
 }
 aside {
   width: 188px;
   flex-shrink: 0;
-  background: #143e36;
-  color: #d4e7df;
+  background: #272b2f;
+  color: #f4f6f5;
   padding: 30px 16px;
   position: fixed;
   inset: 0 auto 0 0;
@@ -57,31 +57,39 @@ aside {
   flex-direction: column;
 }
 .brand {
-  font-size: 38px;
-  font-weight: 750;
-  letter-spacing: -7px;
-  padding: 0 12px 45px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0 42px;
+  text-align: center;
 }
-.brand span {
-  color: #99c9a8;
+.brand img {
+  display: block;
+  width: 126px;
+  height: 126px;
+  border: 1px solid #5b5140;
+  border-radius: 30px;
 }
 .brand small {
   display: block;
-  font-size: 10px;
-  letter-spacing: 3px;
-  margin-top: 8px;
-  color: #d3e5d9;
+  font-family: "Noto Sans Mono", ui-monospace, monospace;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 2.8px;
+  margin-top: 16px;
+  color: #eeb85d;
 }
 .nav {
   background: transparent;
   border: 0;
   text-align: left;
-  color: #d4e7df;
+  color: #f4f6f5;
   margin-bottom: 8px;
   padding: 12px;
 }
 .nav:hover {
-  background: #255147;
+  background: #363d42;
+  color: #eeb85d;
   border: 0;
 }
 .aside-bottom {
@@ -95,14 +103,14 @@ aside {
   font-size: 11px;
   line-height: 1.7;
   letter-spacing: 0;
-  color: #92b2a7;
+  color: #c2c9c5;
   margin-top: 12px;
 }
 .dot {
   display: inline-block;
   width: 6px;
   height: 6px;
-  background: #72b18b;
+  background: #eeb85d;
   border-radius: 50%;
   margin-right: 7px;
 }
@@ -228,7 +236,7 @@ table {
   table-layout: fixed;
   width: 925px;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 thead {
   position: sticky;
@@ -239,7 +247,7 @@ th {
   height: 58px;
   text-align: left;
   background: #f7f9f7;
-  font-size: 9px;
+  font-size: 10px;
   color: #73847a;
   font-weight: 650;
   text-transform: uppercase;
@@ -257,14 +265,14 @@ th:first-child {
   color: #849287;
 }
 tr.selected td {
-  background: #e8f3ed;
+  background: #fff0d0;
 }
 tr.phase td {
-  background: #f4f7f3;
+  background: #fff8e9;
   font-weight: 650;
 }
 tr.selected.phase td {
-  background: #e8f3ed;
+  background: #fff0d0;
 }
 td input {
   width: 100%;
@@ -273,14 +281,14 @@ td input {
   background: transparent;
   color: inherit;
   padding: 5px 3px;
-  font-size: 11px;
+  font-size: 12px;
   min-width: 0;
 }
 td input:hover {
   border-color: #d5e1d7;
 }
 td input:focus {
-  outline: 2px solid #72a78f;
+  outline: 2px solid #eeb85d;
   background: white;
 }
 td input:disabled {
@@ -292,7 +300,7 @@ td input[type="color"] {
   width: 30px;
 }
 td input[type="date"] {
-  font-size: 11px;
+  font-size: 12px;
   padding: 3px 0;
 }
 .date-cell {
@@ -306,7 +314,7 @@ td input[type="date"] {
 }
 .date-cell small {
   color: #7c8e83;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   min-width: 24px;
 }
@@ -323,7 +331,7 @@ td input[type="date"] {
   flex-shrink: 0;
 }
 .task-icon {
-  font-size: 9px;
+  font-size: 10px;
   color: #6b9481;
   width: 17px;
   flex-shrink: 0;
@@ -340,7 +348,7 @@ footer {
   display: flex;
   justify-content: space-between;
   padding: 13px 17px;
-  font-size: 10px;
+  font-size: 11px;
   color: #8a9a90;
   border-top: 1px solid #dce5dd;
 }
@@ -352,7 +360,7 @@ footer > span:last-child {
 .legend-bar {
   width: 17px;
   height: 7px;
-  background: #387f78;
+  background: #eeb85d;
   border-radius: 2px;
 }
 .legend-diamond {
@@ -369,8 +377,8 @@ footer > span:last-child {
   bottom: 25px;
   left: 50%;
   transform: translateX(-50%);
-  background: #173f35;
-  color: white;
+  background: #eeb85d;
+  color: #143e36;
   border-radius: 7px;
   padding: 12px 20px;
   box-shadow: 0 4px 20px #0002;
@@ -513,7 +521,7 @@ td select {
   border: 1px solid #dce5dd;
   background: #f7faf7;
   color: #496454;
-  font-size: 10px;
+  font-size: 11px;
   border-radius: 4px;
   padding: 4px 1px;
 }

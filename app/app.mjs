@@ -391,7 +391,7 @@ function gantt(rows, all) {
       (scale === "week" && d.getUTCDay() === 1) ||
       ((scale === "month" || scale === "fit") && d.getUTCDate() === 1)
     ) {
-      ticks += `<path d="M${px} 31V${height}" stroke="#e5ebe5"/><text x="${px + 4}" y="48" fill="#849487" font-size="9">${scale === "month" || scale === "fit" ? "Q" + (Math.floor(d.getUTCMonth() / 3) + 1) : d.getUTCDate()}</text>`;
+      ticks += `<path d="M${px} 31V${height}" stroke="#e5ebe5"/><text x="${px + 4}" y="48" fill="#849487" font-size="10">${scale === "month" || scale === "fit" ? "Q" + (Math.floor(d.getUTCMonth() / 3) + 1) : d.getUTCDate()}</text>`;
     }
     if (i === 0 || d.getUTCDate() === 1) {
       monthStart = px;
@@ -399,7 +399,7 @@ function gantt(rows, all) {
         Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1),
       );
       if (((nextMonth - d) / DAY) * unit > 58)
-        months += `<text x="${monthStart + 7}" y="20" fill="#5e7769" font-size="10" font-weight="600">${d.toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" })}</text>`;
+        months += `<text x="${monthStart + 7}" y="20" fill="#5e7769" font-size="11" font-weight="600">${d.toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" })}</text>`;
     }
   }
   let lines = "",
@@ -412,11 +412,11 @@ function gantt(rows, all) {
       w = Math.max(4, x(t.finish) + unit - xx);
     lines += `<path d="M0 ${y + 42}H${width}" stroke="#edf1ed"/>`;
     if (t.kind === "phase") {
-      bars += `<path d="M${xx} ${y + 17}h${w}v8l-4 -4H${xx + 4}l-4 4Z" fill="#2c4f43"/>`;
+      bars += `<path d="M${xx} ${y + 17}h${w}v8l-4 -4H${xx + 4}l-4 4Z" fill="#eeb85d"/>`;
     } else if (t.kind === "milestone") {
-      bars += `<path data-bar="${t.id}" data-unit="${unit}" d="M${xx + unit / 2} ${y + 14}l7 7 -7 7 -7 -7Z" fill="${t.color}"/><text x="${xx + unit / 2 + 12}" y="${y + 24}" font-size="9" fill="#62796c">${t.start.slice(5)}</text>`;
+      bars += `<path data-bar="${t.id}" data-unit="${unit}" d="M${xx + unit / 2} ${y + 14}l7 7 -7 7 -7 -7Z" fill="${t.color}"/><text x="${xx + unit / 2 + 12}" y="${y + 24}" font-size="10" fill="#62796c">${t.start.slice(5)}</text>`;
     } else {
-      bars += `<rect data-bar="${t.id}" data-unit="${unit}" x="${xx}" y="${y + 13}" width="${w}" height="16" rx="3" fill="${t.color}"/><text x="${xx + w + 6}" y="${y + 24}" font-size="10" fill="#64766a">${esc(t.owner || t.name)}</text>`;
+      bars += `<rect data-bar="${t.id}" data-unit="${unit}" x="${xx}" y="${y + 13}" width="${w}" height="16" rx="3" fill="${t.color}"/><text x="${xx + w + 6}" y="${y + 24}" font-size="11" fill="#64766a">${esc(t.owner || t.name)}</text>`;
     }
     for (const dep of t.deps) {
       if (!pos.has(dep)) continue;
@@ -462,7 +462,7 @@ function add(kind) {
       duration: kind === "milestone" ? 0 : 1,
       deps: [],
       owner: "",
-      color: "#387f78",
+      color: "#eeb85d",
     });
     selected = id;
     selectedIds.clear();
@@ -527,7 +527,7 @@ function saveAsFallback() {
         if (!name) throw Error("Enter a project file name.");
         const result = await api("/api/save", {
           project,
-          filename: `${name.replace(/\.fieldplan$/i, "")}.fieldplan`,
+          filename: `${name.replace(/\.(pln|fieldplan)$/i, "")}.pln`,
         });
         filename = result.filename;
         savedRevision = result.revision;
@@ -710,7 +710,7 @@ $("#open").onclick = async () => {
         }),
     );
     $("#browse").onclick = () => {
-      $("#file").accept = ".json,.fieldplan";
+      $("#file").accept = ".json,.pln,.fieldplan";
       $("#file").dataset.action = "open";
       $("#file").click();
     };

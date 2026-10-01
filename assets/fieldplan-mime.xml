@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-pc-plan">
+    <comment>PC Plan project</comment>
+    <glob pattern="*.pln"/>
+  </mime-type>
   <mime-type type="application/x-fieldplan">
-    <comment>Fieldplan project</comment>
+    <comment>PC Plan legacy project</comment>
     <glob pattern="*.fieldplan"/>
   </mime-type>
 </mime-info>

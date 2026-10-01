@@ -2,10 +2,12 @@
 *.mpp
 *.pdf
 *.fieldplan
+*.pln
 projects/
 exports/
 docs/reference/
 .runtime/
+dist/
 .venv/
 __pycache__/
 *.pyc

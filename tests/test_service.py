@@ -41,6 +41,7 @@ class ServiceTests(unittest.TestCase):
             "tasks": [],
         }
         result = self.request("/api/save", {"project": p})
+        self.assertTrue(result["filename"].endswith(".pln"))
         self.created.append(server.PROJECTS / result["filename"])
         opened = self.request("/api/open", {"filename": result["filename"]})
         self.assertEqual(opened["project"], p)

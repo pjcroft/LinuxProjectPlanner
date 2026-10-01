@@ -19,21 +19,20 @@ from gi.repository import Gtk, WebKit2, GLib
 from server import revision, validate
 
 ROOT = Path(__file__).resolve().parent
+DATA_HOME = Path(os.environ.get("PC_PLAN_DATA_HOME", ROOT)).expanduser()
+PROJECTS = DATA_HOME / "projects"
+EXPORTS = DATA_HOME / "exports"
+DATA_RUNTIME = DATA_HOME / ".runtime"
 opened_project = None
 if len(sys.argv) > 1:
     candidate = Path(sys.argv[1]).expanduser()
-    if candidate.suffix.lower() == ".fieldplan" and candidate.is_file() and not candidate.is_symlink():
+    if candidate.suffix.lower() in (".pln", ".fieldplan") and candidate.is_file() and not candidate.is_symlink():
         opened_project = candidate.resolve()
 
 
 def python_runtime():
-    local = ROOT / ".venv/bin/python"
-    bundled = (
-        Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3"
-    )
-    for p in [local, bundled]:
-        if p.exists():
-            return str(p)
+    # The package bundles extensions compiled for the system Python. Use the
+    # interpreter that launched the GTK shell so those extensions always match.
     return sys.executable
 
 
@@ -50,12 +49,12 @@ service = subprocess.Popen(
 url = service.stdout.readline().strip()
 if not url.startswith("http://127.0.0.1:"):
     raise RuntimeError("The local planner service could not start.")
-window = Gtk.Window(title="Fieldplan · Linux Desktop Planner")
+window = Gtk.Window(title="PC Plan · Linux Desktop Planner")
 window.set_default_size(1540, 940)
 window.set_position(Gtk.WindowPosition.CENTER)
 manager = WebKit2.WebsiteDataManager(
-    base_data_directory=str(ROOT / ".runtime/webkit/data"),
-    base_cache_directory=str(ROOT / ".runtime/webkit/cache"),
+    base_data_directory=str(DATA_RUNTIME / "webkit/data"),
+    base_cache_directory=str(DATA_RUNTIME / "webkit/cache"),
 )
 context = WebKit2.WebContext.new_with_website_data_manager(manager)
 view = WebKit2.WebView.new_with_context(context)
@@ -82,8 +81,8 @@ def reply_to_pdf_request(data):
 def write_chosen_project(path, project):
     validate(project)
     path = Path(path)
-    if path.suffix.lower() != ".fieldplan":
-        path = path.with_suffix(".fieldplan")
+    if path.suffix.lower() != ".pln":
+        path = path.with_suffix(".pln")
     if not path.parent.is_dir():
         raise ValueError("Choose an existing folder for the project.")
     with tempfile.NamedTemporaryFile(
@@ -119,9 +118,9 @@ def choose_save_path(project, suggested_name):
     )
     chooser.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save project", Gtk.ResponseType.ACCEPT)
     chooser.set_do_overwrite_confirmation(True)
-    chooser.set_current_folder(str(ROOT / "projects"))
+    chooser.set_current_folder(str(PROJECTS))
     suggested = Path(str(suggested_name or "project")).name
-    chooser.set_current_name((suggested.removesuffix(".fieldplan") or "project") + ".fieldplan")
+    chooser.set_current_name((suggested.removesuffix(".pln").removesuffix(".fieldplan") or "project") + ".pln")
 
     def chosen(dialog, response):
         try:
@@ -144,7 +143,7 @@ def choose_pdf_path(suggested_name):
     )
     chooser.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save PDF", Gtk.ResponseType.ACCEPT)
     chooser.set_do_overwrite_confirmation(True)
-    chooser.set_current_folder(str(ROOT / "exports"))
+    chooser.set_current_folder(str(EXPORTS))
     suggested = Path(str(suggested_name or "project")).name
     chooser.set_current_name((suggested.removesuffix(".pdf") or "project") + ".pdf")
 
@@ -170,9 +169,9 @@ def move_exported_pdf(filename, destination):
         raise ValueError("Invalid PDF file.")
     if destination not in native_pdf_paths:
         raise ValueError("Choose a PDF location first.")
-    source = ROOT / "exports" / filename
+    source = EXPORTS / filename
     target = Path(destination)
-    if not source.is_file() or source.resolve().parent != (ROOT / "exports").resolve():
+    if not source.is_file() or source.resolve().parent != EXPORTS.resolve():
         raise ValueError("The exported PDF could not be found.")
     if source.resolve() == target.resolve():
         return target
@@ -273,8 +272,8 @@ def policy(web, decision, kind):
     parsed = urlparse(uri)
     if uri.startswith(url + "/exports/"):
         name = unquote(parsed.path[len("/exports/") :])
-        file = ROOT / "exports" / name
-        if file.is_file() and file.resolve().parent == (ROOT / "exports").resolve():
+        file = EXPORTS / name
+        if file.is_file() and file.resolve().parent == EXPORTS.resolve():
             subprocess.Popen(
                 ["xdg-open", str(file)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )

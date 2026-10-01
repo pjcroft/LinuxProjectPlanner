@@ -71,7 +71,7 @@ def export_pdf(project, settings, output):
     total = row_pages * slice_count
     c = canvas.Canvas(str(output), pagesize=(width, height))
     c.setTitle(project["name"])
-    c.setAuthor("Fieldplan")
+    c.setAuthor("PC Plan")
 
     def text(x, y, s, size=7, bold=False, color=INK):
         c.setFillColor(color)
@@ -105,7 +105,7 @@ def export_pdf(project, settings, output):
                 8,
                 color=MUTED,
             )
-            text(width - margin - 112, height - 52, "FIELDPLAN  /  SCHEDULE", 7, color=MUTED)
+            text(width - margin - 112, height - 52, "PC PLAN  /  SCHEDULE", 7, color=MUTED)
             c.setFillColor(HexColor("#f0f5f1"))
             c.rect(margin, top, usable, 36, fill=1, stroke=0)
             x = margin

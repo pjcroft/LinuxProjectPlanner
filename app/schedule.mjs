@@ -207,7 +207,7 @@ export function demo() {
     duration,
     deps,
     owner,
-    color: id < 5 ? "#387f78" : "#6874b6",
+    color: id < 5 ? "#eeb85d" : "#6874b6",
   }));
   return p;
 }

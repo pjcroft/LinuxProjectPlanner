@@ -20,10 +20,13 @@ from datetime import date
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / ".runtime/python"))
-PROJECTS = ROOT / "projects"
-EXPORTS = ROOT / "exports"
-WORK = ROOT / ".runtime/work"
+DATA_HOME = Path(os.environ.get("PC_PLAN_DATA_HOME", ROOT)).expanduser()
+PROJECTS = DATA_HOME / "projects"
+EXPORTS = DATA_HOME / "exports"
+WORK = DATA_HOME / ".runtime/work"
 PREVIEWS = WORK / "previews"
+PROJECT_SUFFIX = ".pln"
+LEGACY_PROJECT_SUFFIX = ".fieldplan"
 for directory in (PROJECTS, EXPORTS, WORK, PREVIEWS):
     directory.mkdir(parents=True, exist_ok=True)
 TOKEN = secrets.token_urlsafe(32)
@@ -36,7 +39,8 @@ def slug(name):
 
 
 def safe_file(folder, name, suffix):
-    if not isinstance(name, str) or Path(name).name != name or not name.endswith(suffix):
+    suffixes = (suffix,) if isinstance(suffix, str) else suffix
+    if not isinstance(name, str) or Path(name).name != name or not name.endswith(suffixes):
         raise ValueError("Invalid filename.")
     p = folder / name
     if p.is_symlink() or p.resolve().parent != folder.resolve():
@@ -227,7 +231,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
             if path == "/api/projects":
                 items = []
-                for p in PROJECTS.glob("*.fieldplan"):
+                for p in [*PROJECTS.glob(f"*{PROJECT_SUFFIX}"), *PROJECTS.glob(f"*{LEGACY_PROJECT_SUFFIX}")]:
                     if p.is_symlink():
                         continue
                     try:
@@ -256,6 +260,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/style.css": ("style.css", "text/css"),
                     "/app.mjs": ("app.mjs", "text/javascript"),
                     "/schedule.mjs": ("schedule.mjs", "text/javascript"),
+                    "/pc-plan.svg": ("../assets/fieldplan.svg", "image/svg+xml"),
                 }
                 if path not in assets:
                     return self.reply({"error": "Not found."}, 404)
@@ -288,16 +293,16 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length))
             path = urlparse(self.path).path
             if path == "/api/open":
-                p = safe_file(PROJECTS, data["filename"], ".fieldplan")
+                p = safe_file(PROJECTS, data["filename"], (PROJECT_SUFFIX, LEGACY_PROJECT_SUFFIX))
                 project = validate(json.loads(p.read_text()))
                 return self.reply({"project": project, "revision": revision(p)})
             if path == "/api/save":
                 p = validate(data["project"])
                 filename = (
                     data.get("filename")
-                    or slug(p["name"]) + "-" + uuid.uuid4().hex[:6] + ".fieldplan"
+                    or slug(p["name"]) + "-" + uuid.uuid4().hex[:6] + PROJECT_SUFFIX
                 )
-                file = safe_file(PROJECTS, filename, ".fieldplan")
+                file = safe_file(PROJECTS, filename, PROJECT_SUFFIX)
                 with LOCK:
                     if file.exists() and data.get("revision") != revision(file):
                         raise ValueError(

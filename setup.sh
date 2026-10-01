@@ -26,4 +26,4 @@ with tarfile.open(p) as archive:
 print('Installed project-local Java 21.')
 PY
 fi
-printf 'Setup complete. Run ./launch.sh to open Fieldplan.\n'
+printf 'Setup complete. Run ./launch.sh to open PC Plan.\n'

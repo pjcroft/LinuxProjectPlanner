@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Fieldplan · Linux Desktop Planner</title>
+    <title>PC Plan · Linux Desktop Planner</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <aside>
-      <div class="brand">f<span>p</span><small>FIELDPLAN</small></div>
+      <div class="brand" aria-label="PC Plan"><img src="/pc-plan.svg" alt="PC Plan"><small>PC PLAN</small></div>
       <button id="new" class="nav">＋ New project</button
       ><button id="open" class="nav">▤ Open project</button
       ><button id="import" class="nav">↥ Import plan</button>
@@ -22,7 +22,7 @@
       <header>
         <div>
           <div class="eyebrow">
-            LINUX DESKTOP PLANNER <span>/</span> SCHEDULE
+            PC PLAN <span>/</span> SCHEDULE
           </div>
           <input id="projectName" aria-label="Project name" maxlength="200" />
           <div class="meta">
@@ -83,7 +83,7 @@
       <div id="notice" role="status" aria-live="polite"></div>
       <div id="contextMenu" role="menu" hidden></div>
     </main>
-    <input type="file" id="file" accept=".json,.fieldplan" hidden />
+    <input type="file" id="file" accept=".json,.pln,.fieldplan" hidden />
     <dialog id="dialog"><div id="dialogContent"></div></dialog>
     <script type="module" src="/app.mjs"></script>
   </body>

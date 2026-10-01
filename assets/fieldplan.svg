@@ -1,17 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <defs>
-    <linearGradient id="background" x1="28" y1="20" x2="226" y2="238" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2f796e"/>
-      <stop offset="1" stop-color="#174a42"/>
-    </linearGradient>
-  </defs>
-  <rect width="256" height="256" rx="58" fill="url(#background)"/>
-  <rect x="46" y="40" width="164" height="176" rx="17" fill="#f7fbf8"/>
-  <rect x="70" y="75" width="52" height="12" rx="6" fill="#c6dcd4"/>
-  <rect x="70" y="107" width="52" height="12" rx="6" fill="#c6dcd4"/>
-  <rect x="70" y="139" width="52" height="12" rx="6" fill="#c6dcd4"/>
-  <path d="M139 81h46M139 113h32M139 145h46" fill="none" stroke="#2e776c" stroke-linecap="round" stroke-width="12"/>
-  <path d="M84 180c25-8 39-25 53-44 10-14 24-22 43-28" fill="none" stroke="#f0b85d" stroke-linecap="round" stroke-width="8"/>
-  <circle cx="84" cy="180" r="9" fill="#f0b85d"/>
-  <circle cx="180" cy="108" r="9" fill="#f0b85d"/>
+  <rect width="256" height="256" rx="58" fill="#143e36"/>
+  <path d="M65 190V65h39c27 0 44 16 44 39s-17 39-44 39H65" fill="none" stroke="#f4f8f5" stroke-linecap="round" stroke-linejoin="round" stroke-width="20"/>
+  <path d="M203 87c-10-14-26-22-44-22-34 0-57 26-57 63s23 63 57 63c18 0 34-8 44-22" fill="none" stroke="#8bc7ad" stroke-linecap="round" stroke-width="20"/>
+  <path d="M108 160h52" stroke="#eeb85d" stroke-linecap="round" stroke-width="8"/>
+  <path d="m164 151 10 9-10 9-10-9z" fill="#eeb85d"/>
 </svg>

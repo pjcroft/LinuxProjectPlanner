@@ -1,4 +1,4 @@
-# Linux Desktop Planner — Fieldplan
+# Linux Desktop Planner — PC Plan
 
 A local Linux desktop planner with an editable task grid, linked Gantt chart, one-way Microsoft Project import, and vector PDF export. Designed for personal project schedules and customer-facing installation plans.
 
@@ -6,9 +6,21 @@ A local Linux desktop planner with an editable task grid, linked Gantt chart, on
 
 Run `./launch.sh` from the project folder. The dependencies have already been downloaded locally. An imported reference plan is available in **Open project** on this machine; customer files are not included in this repository.
 
-To add **Fieldplan** to your Linux application menu and make `.fieldplan` files open in it, run `./install-desktop.sh` once. It installs only for your user account and does not require an administrator password.
+To add **PC Plan** to your Linux application menu and make `.pln` files open in it, run `./install-desktop.sh` once. It installs only for your user account and does not require an administrator password.
 
 ## Install on another Linux machine
+
+For Ubuntu/Debian on a similar 64-bit Intel/AMD computer, use the included package:
+
+```sh
+sudo apt install ./pc-plan_0.1.0_amd64.deb
+```
+
+It adds PC Plan to the application menu, associates `.pln` files, and keeps projects, exports, and application data in `~/.local/share/pc-plan/`. The package bundles the PDF and Microsoft Project import components; Ubuntu supplies the native GTK and WebKit libraries.
+
+To build a fresh package after changes, run `./build-deb.sh`. The result is placed in `dist/`.
+
+To run directly from a source checkout instead, install the native dependencies below:
 
 Requires Python 3.12 or later, GTK 3, and WebKitGTK 4.1. On Ubuntu/Debian:
 
@@ -20,17 +32,17 @@ sudo apt install python3 python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4
 
 Setup downloads Python packages and a checksum-verified Eclipse Temurin Java 21 runtime **inside this folder**. Java is used only for MPP import. Normal app use is offline. The interface is local HTML/JavaScript inside a native GTK/WebKit window; no Node, Rust, hosted website, or frontend build is needed.
 
-Fieldplan deliberately uses WebKit's software compositing mode on this machine. It avoids a current Mesa/EGL crash in the installed WebKitGTK build and does not affect planning or PDF export.
+PC Plan deliberately uses WebKit's software compositing mode on this machine. It avoids a current Mesa/EGL crash in the installed WebKitGTK build and does not affect planning or PDF export.
 
 ## Everyday workflow
 
-1. **New project** sets the name and initial date, then asks where to save the new `.fieldplan` file.
+1. **New project** sets the name and initial date, then asks where to save the new `.pln` file.
 2. Add a **Phase**, **Task**, or **Milestone**. Selecting a phase before adding inserts a child; selecting a task inserts its next sibling.
 3. Edit task cells. Weekday abbreviations appear before each start and finish date. **More columns** exposes owners, colors, and scheduling mode.
 4. To create a dependency, select the predecessor, Ctrl-click the successor, then right-click either selected row and choose **Make dependent**. A fixed-date successor shifts right when needed. Right-click a linked task and choose **Break dependency** to remove its link while keeping its current dates. Existing links remain visible as arrows in the Gantt chart.
 5. Use **Indent / Outdent** for the outline. Phases calculate their dates from children. Collapse a phase with its triangle.
 6. Choose **Fit timeline**, Day, Week, or Month. Drag an ordinary task bar or milestone to move it; automatic dependencies may constrain its new date.
-7. **Save project** (Ctrl+S) opens a Linux file chooser the first time, then saves back to the selected file. **Save as project** always opens the chooser to select a folder and filename. **Open project** lists saved plans and can read another `.fieldplan` or JSON project.
+7. **Save project** (Ctrl+S) opens a Linux file chooser the first time, then saves back to the selected file. **Save as project** always opens the chooser to select a folder and filename. **Open project** lists saved plans and can read another `.pln`, legacy `.fieldplan`, or JSON project.
 8. **Export PDF** lets you preview the actual rendered pages before creating the file. Set the PDF name, which controls both its on-page title and filename, then choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates. **Create PDF** asks where to save the finished file.
 
 The app opens a clean untitled project. Use **Open project** to return to a saved plan. Save is explicit; unsaved changes are protected by prompts when switching projects or closing the native window. Undo retains up to 60 edits within the current session. Deleting a phase also removes its children and incoming references, with confirmation and undo.
@@ -60,7 +72,7 @@ Exports are vector pages with embedded DejaVu fonts when installed. A task table
 - `.runtime/`, `.venv/`: local dependencies and caches, ignored by Git
 - `tests/`: calendar, storage, browser, native-window, and PDF checks
 
-Only source and documentation belong on GitHub. `.mpp`, `.pdf`, `.fieldplan`, reference material, runtime downloads, test screenshots, and local credentials are ignored. Saved files use atomic replacement and conflict detection to avoid overwriting edits from another window. The app is intended for one local user, not deployment as an internet service.
+Only source and documentation belong on GitHub. `.mpp`, `.pdf`, `.pln`, legacy `.fieldplan`, reference material, runtime downloads, test screenshots, and local credentials are ignored. Saved files use atomic replacement and conflict detection to avoid overwriting edits from another window. The app is intended for one local user, not deployment as an internet service.
 
 ## Development and tests
 
