@@ -155,41 +155,6 @@ header {
   display: flex;
   gap: 8px;
 }
-.overview {
-  display: flex;
-  align-items: center;
-  border-top: 1px solid #dce4de;
-  border-bottom: 1px solid #dce4de;
-  margin: 30px 0;
-  gap: 40px;
-  padding: 22px 0;
-}
-.overview > div {
-  min-width: 100px;
-}
-.metric {
-  display: block;
-  font-size: 22px;
-  font-weight: 550;
-  margin-bottom: 5px;
-}
-.overview small {
-  font-size: 9px;
-  letter-spacing: 1.3px;
-  color: #85938c;
-}
-.overview p {
-  margin-left: auto;
-  color: #5e786c;
-  font-size: 12px;
-}
-.overview p small {
-  display: block;
-  letter-spacing: 0;
-  margin-top: 8px;
-  margin-left: 13px;
-  font-size: 10px;
-}
 .workspace {
   border: 1px solid #dbe3dd;
   background: white;
@@ -327,8 +292,23 @@ td input[type="color"] {
   width: 30px;
 }
 td input[type="date"] {
-  font-size: 10px;
+  font-size: 11px;
   padding: 3px 0;
+}
+.date-cell {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.date-cell input[type="date"] {
+  min-width: 0;
+  flex: 1;
+}
+.date-cell small {
+  color: #7c8e83;
+  font-size: 10px;
+  font-weight: 650;
+  min-width: 24px;
 }
 .task-name {
   display: flex;
@@ -397,6 +377,28 @@ footer > span:last-child {
   max-width: 80vw;
   display: none;
   z-index: 10;
+}
+#contextMenu {
+  position: fixed;
+  z-index: 20;
+  max-width: 350px;
+  padding: 5px;
+  border: 1px solid #cbd9d0;
+  border-radius: 7px;
+  background: white;
+  box-shadow: 0 8px 24px #183d2e2b;
+}
+#contextMenu button {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  line-height: 1.4;
+}
+#contextMenu span {
+  display: block;
+  padding: 8px 10px;
+  color: #6d8177;
+  font-size: 11px;
 }
 dialog {
   border: 1px solid #d4dfd5;
@@ -469,16 +471,13 @@ dialog .check {
     width: calc(100% - 150px);
     padding: 25px 20px;
   }
-  .overview {
-    gap: 25px;
-  }
   .footer-note {
     display: none;
   }
 }
-table.compact th:nth-child(n + 7),
-table.compact td:nth-child(n + 7),
-table.compact col:nth-child(n + 7) {
+table.compact th:nth-child(n + 6),
+table.compact td:nth-child(n + 6),
+table.compact col:nth-child(n + 6) {
   display: none;
 }
 td select {
@@ -494,10 +493,6 @@ td select {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.overview {
-  margin: 24px 0;
-  padding: 18px 0;
-}
 .schedule {
   max-height: calc(100vh - 345px);
 }
@@ -506,8 +501,7 @@ main {
   display: flex;
   flex-direction: column;
 }
-header,
-.overview {
+header {
   flex-shrink: 0;
 }
 .workspace {

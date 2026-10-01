@@ -9,7 +9,6 @@ import {
   schedule,
   visible,
   blank,
-  demo,
 } from "./schedule.mjs";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
@@ -23,17 +22,21 @@ const $ = (s) => document.querySelector(s),
           '"': "&quot;",
           "'": "&#39;",
         })[c],
-    );
-let project = demo(),
+    ),
+  dayAbbr = (s) =>
+    date(s).toLocaleDateString("en", { weekday: "short", timeZone: "UTC" });
+let project = blank(),
   filename = null,
   dirty = false,
   selected = null,
+  selectedIds = new Set(),
   collapsed = new Set(),
   history = [],
   scale = "fit",
   details = false,
   token = "",
-  savedRevision = null;
+  savedRevision = null,
+  nativeProjectPath = null;
 const notify = (s) => {
   $("#notice").textContent = s;
   $("#notice").style.display = "block";
@@ -64,6 +67,25 @@ function mutate(fn) {
     notify(e.message);
     render();
   }
+}
+function moveDependentTasks(taskId, calendarDays, scheduledTasks) {
+  if (!calendarDays) return;
+  const scheduled = new Map(scheduledTasks.map((task) => [task.id, task]));
+  const moved = new Set([taskId]);
+  const moveSuccessors = (predecessorId) => {
+    for (const successor of project.tasks.filter((task) =>
+      task.deps.includes(predecessorId),
+    )) {
+      if (moved.has(successor.id)) continue;
+      moved.add(successor.id);
+      const beforeMove = scheduled.get(successor.id);
+      successor.start = plus(beforeMove.start, calendarDays);
+      if (successor.mode === "manual")
+        successor.finish = plus(beforeMove.finish, calendarDays);
+      moveSuccessors(successor.id);
+    }
+  };
+  moveSuccessors(taskId);
 }
 function modal(html) {
   $("#dialogContent").innerHTML = html;
@@ -102,12 +124,116 @@ function load(p, file = null, revision = null) {
   schedule(p);
   project = p;
   filename = file;
+  nativeProjectPath = null;
   savedRevision = revision;
   selected = null;
+  selectedIds.clear();
   history = [];
   collapsed.clear();
   dirty = false;
   render();
+}
+function selectionText() {
+  if (!selected) return "No row selected";
+  if (selectedIds.size > 1)
+    return `${selectedIds.size} tasks selected · right-click to make the second task dependent on the first`;
+  return `Selected task ${selected} · ${project.tasks.find((t) => t.id === selected)?.mode === "manual" ? "Fixed dates" : "Automatic scheduling"}`;
+}
+function refreshSelection() {
+  document.querySelectorAll("#schedule tr[data-id]").forEach((row) => {
+    row.classList.toggle("selected", selectedIds.has(+row.dataset.id));
+  });
+  $("#selection").textContent = selectionText();
+  ["delete", "indent", "outdent"].forEach((id) => {
+    $("#" + id).disabled = !selected;
+  });
+}
+function selectTask(id, additive = false) {
+  if (!additive) selectedIds.clear();
+  selectedIds.add(id);
+  selected = id;
+  refreshSelection();
+}
+function hideContextMenu() {
+  $("#contextMenu").hidden = true;
+}
+function makeDependent() {
+  const [predecessorId, successorId] = [...selectedIds];
+  const predecessor = project.tasks.find((task) => task.id === predecessorId);
+  const successor = project.tasks.find((task) => task.id === successorId);
+  if (!predecessor || !successor || selectedIds.size !== 2)
+    return notify("Select two tasks first.");
+  if (predecessor.kind === "phase" || successor.kind === "phase")
+    return notify("Choose tasks or milestones, not phases, for a dependency.");
+  if (successor.deps.includes(predecessorId))
+    return notify(`${successor.name} already depends on ${predecessor.name}.`);
+  hideContextMenu();
+  mutate(() => {
+    successor.deps.push(predecessorId);
+    if (successor.mode === "manual") {
+      const scheduled = new Map(schedule(project).map((task) => [task.id, task]));
+      const earliest = successor.deps.reduce((start, dependencyId) => {
+        const dependency = scheduled.get(dependencyId);
+        const nextStart = workday(plus(dependency.finish, 1));
+        return nextStart > start ? nextStart : start;
+      }, successor.start);
+      if (earliest > successor.start) {
+        const calendarDays = Math.round(
+          (+date(successor.finish) - +date(successor.start)) / DAY,
+        );
+        successor.start = earliest;
+        successor.finish = plus(earliest, calendarDays);
+      }
+    }
+  });
+}
+function breakDependency(successorId, predecessorId) {
+  const successor = project.tasks.find((task) => task.id === successorId);
+  const predecessor = project.tasks.find((task) => task.id === predecessorId);
+  if (!successor || !predecessor) return;
+  hideContextMenu();
+  mutate(() => {
+    successor.deps = successor.deps.filter((id) => id !== predecessorId);
+  });
+  notify(`Removed ${successor.name}'s dependency on ${predecessor.name}.`);
+}
+function showContextMenu(event, contextTaskId) {
+  event.preventDefault();
+  const menu = $("#contextMenu");
+  const [predecessorId, successorId] = [...selectedIds];
+  const predecessor = project.tasks.find((task) => task.id === predecessorId);
+  const successor = project.tasks.find((task) => task.id === successorId);
+  const ready =
+    selectedIds.size === 2 &&
+    predecessor?.kind !== "phase" &&
+    successor?.kind !== "phase" &&
+    !successor?.deps.includes(predecessorId);
+  const contextTask = project.tasks.find((task) => task.id === contextTaskId);
+  const actions = [];
+  if (ready)
+    actions.push(
+      `<button id="makeDependent" role="menuitem">Make “${esc(successor.name)}” dependent on “${esc(predecessor.name)}”</button>`,
+    );
+  if (contextTask?.deps.length)
+    for (const dependencyId of contextTask.deps) {
+      const dependency = project.tasks.find((task) => task.id === dependencyId);
+      if (dependency)
+        actions.push(
+          `<button data-break-dependency="${dependency.id}" role="menuitem">Break dependency on “${esc(dependency.name)}”</button>`,
+        );
+    }
+  menu.innerHTML = actions.length
+    ? actions.join("")
+    : '<span>Select a task, Ctrl-click its successor, then right-click.</span>';
+  menu.style.left = `${Math.min(event.clientX, window.innerWidth - 360)}px`;
+  menu.style.top = `${Math.min(event.clientY, window.innerHeight - 72)}px`;
+  menu.hidden = false;
+  $("#makeDependent")?.addEventListener("click", makeDependent);
+  menu.querySelectorAll("[data-break-dependency]").forEach((button) => {
+    button.addEventListener("click", () =>
+      breakDependency(contextTaskId, +button.dataset.breakDependency),
+    );
+  });
 }
 function render() {
   const all = schedule(project),
@@ -116,19 +242,12 @@ function render() {
   $("#projectStart").value = project.start;
   $("#status").textContent = dirty
     ? "Unsaved changes"
-    : filename
+    : nativeProjectPath
+      ? "Saved locally · " + nativeProjectPath
+      : filename
       ? "Saved locally · " + filename
-      : "Example · save to keep";
-  $("#taskCount").textContent = all.filter((t) => t.kind === "task").length;
-  $("#milestoneCount").textContent = all.filter(
-    (t) => t.kind === "milestone",
-  ).length;
-  $("#endDate").textContent = all.length
-    ? all.reduce((a, t) => (a > t.finish ? a : t.finish), all[0].finish)
-    : "—";
-  $("#selection").textContent = selected
-    ? `Selected task ${selected} · ${project.tasks.find((t) => t.id === selected)?.mode === "manual" ? "Fixed dates" : "Automatic scheduling"}`
-    : "No row selected";
+      : "New project · choose Save project to keep it";
+  $("#selection").textContent = selectionText();
   $("#undo").disabled = !history.length;
   ["delete", "indent", "outdent", "mode"].forEach((id) => {
     if ($("#" + id)) $("#" + id).disabled = !selected;
@@ -141,37 +260,31 @@ function render() {
     return;
   }
   const colWidths = details
-    ? [36, 255, 65, 106, 106, 75, 104, 43, 90]
-    : [36, 255, 65, 106, 106, 75, 0, 0, 0];
-  container.innerHTML = `<div class="schedule-inner"><table class="${details ? "expanded" : "compact"}" style="width:${colWidths.reduce((a, b) => a + b, 0)}px"><colgroup>${colWidths.map((w) => `<col style="width:${w}px">`).join("")}</colgroup><thead><tr>${["ID", "Task name", "Days", "Start", "Finish", "Predecessors", "Owner", "Color", "Scheduling"].map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map((t) => `<tr data-id="${t.id}" class="${t.kind === "phase" ? "phase " : ""}${selected === t.id ? "selected" : ""}"><td>${t.id}</td><td><div class="task-name" style="padding-left:${t.level * 14}px">${t.kind === "phase" ? `<button class="collapse" data-collapse="${t.id}" aria-label="${collapsed.has(t.id) ? "Expand" : "Collapse"} ${esc(t.name)}">${collapsed.has(t.id) ? "▸" : "▾"}</button>` : `<span class="task-icon">${t.kind === "milestone" ? "◆" : "—"}</span>`}<input data-key="name" aria-label="Task ${t.id} name" value="${esc(t.name)}"></div></td><td><input data-key="duration" aria-label="Task ${t.id} duration" type="number" min="0.01" max="10000" step="any" value="${t.duration}" ${t.kind !== "task" ? "disabled" : ""}></td><td><input data-key="start" aria-label="Task ${t.id} start" type="date" value="${t.start}" ${t.kind === "phase" ? "disabled" : ""}></td><td><input data-key="finish" aria-label="Task ${t.id} finish" type="date" value="${t.finish}" ${t.kind !== "task" ? "disabled" : ""}></td><td><input data-key="deps" aria-label="Task ${t.id} predecessors" value="${t.deps.join(", ")}" ${t.kind === "phase" ? "disabled" : ""}></td><td><input data-key="owner" aria-label="Task ${t.id} owner" value="${esc(t.owner)}"></td><td><input data-key="color" aria-label="Task ${t.id} color" type="color" value="${t.color}"></td><td><select data-key="mode" aria-label="Task ${t.id} scheduling" ${t.kind === "phase" ? "disabled" : ""}><option value="auto" ${t.mode !== "manual" ? "selected" : ""}>Auto</option><option value="manual" ${t.mode === "manual" ? "selected" : ""}>Fixed dates</option></select></td></tr>`).join("")}</tbody></table><div class="gantt">${gantt(rows, all)}</div></div>`;
+    ? [36, 255, 65, 106, 106, 104, 43, 90]
+    : [36, 255, 65, 106, 106, 0, 0, 0];
+  container.innerHTML = `<div class="schedule-inner"><table class="${details ? "expanded" : "compact"}" style="width:${colWidths.reduce((a, b) => a + b, 0)}px"><colgroup>${colWidths.map((w) => `<col style="width:${w}px">`).join("")}</colgroup><thead><tr>${["ID", "Task name", "Days", "Start", "Finish", "Owner", "Color", "Scheduling"].map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map((t) => `<tr data-id="${t.id}" class="${t.kind === "phase" ? "phase " : ""}${selectedIds.has(t.id) ? "selected" : ""}"><td>${t.id}</td><td><div class="task-name" style="padding-left:${t.level * 14}px">${t.kind === "phase" ? `<button class="collapse" data-collapse="${t.id}" aria-label="${collapsed.has(t.id) ? "Expand" : "Collapse"} ${esc(t.name)}">${collapsed.has(t.id) ? "▸" : "▾"}</button>` : `<span class="task-icon">${t.kind === "milestone" ? "◆" : "—"}</span>`}<input data-key="name" aria-label="Task ${t.id} name" value="${esc(t.name)}"></div></td><td><input data-key="duration" aria-label="Task ${t.id} duration" type="number" min="0.01" max="10000" step="any" value="${t.duration}" ${t.kind !== "task" ? "disabled" : ""}></td><td><div class="date-cell"><small>${dayAbbr(t.start)}</small><input data-key="start" aria-label="Task ${t.id} start" type="date" value="${t.start}" ${t.kind === "phase" ? "disabled" : ""}></div></td><td><div class="date-cell"><small>${dayAbbr(t.finish)}</small><input data-key="finish" aria-label="Task ${t.id} finish" type="date" value="${t.finish}" ${t.kind !== "task" ? "disabled" : ""}></div></td><td><input data-key="owner" aria-label="Task ${t.id} owner" value="${esc(t.owner)}"></td><td><input data-key="color" aria-label="Task ${t.id} color" type="color" value="${t.color}"></td><td><select data-key="mode" aria-label="Task ${t.id} scheduling" ${t.kind === "phase" ? "disabled" : ""}><option value="auto" ${t.mode !== "manual" ? "selected" : ""}>Auto</option><option value="manual" ${t.mode === "manual" ? "selected" : ""}>Fixed dates</option></select></td></tr>`).join("")}</tbody></table><div class="gantt">${gantt(rows, all)}</div></div>`;
   container.scrollLeft = scroll[0];
   container.scrollTop = scroll[1];
   container.querySelectorAll("tr[data-id]").forEach((tr) => {
-    tr.addEventListener("click", () => {
-      selected = +tr.dataset.id;
-      container
-        .querySelectorAll("tr.selected")
-        .forEach((e) => e.classList.remove("selected"));
-      tr.classList.add("selected");
-      $("#selection").textContent = `Selected task ${selected}`;
-      ["delete", "indent", "outdent"].forEach(
-        (id) => ($("#" + id).disabled = false),
-      );
+    tr.addEventListener("click", (event) => {
+      selectTask(+tr.dataset.id, event.ctrlKey || event.metaKey);
+    });
+    tr.addEventListener("contextmenu", (event) => {
+      if (!selectedIds.has(+tr.dataset.id)) selectTask(+tr.dataset.id);
+      showContextMenu(event, +tr.dataset.id);
     });
     tr.querySelectorAll("[data-key]").forEach(
       (input) =>
         (input.onchange = () => {
           selected = +tr.dataset.id;
+          selectedIds.clear();
+          selectedIds.add(selected);
           const k = input.dataset.key,
             v = input.value;
           mutate(() => {
             const t = project.tasks.find((t) => t.id === selected),
               computed = all.find((t) => t.id === selected);
-            if (k === "deps") {
-              if (v.trim() && !/^\d+(\s*,\s*\d+)*$/.test(v.trim()))
-                throw Error("Enter predecessor IDs separated by commas.");
-              t.deps = v.trim() ? v.split(",").map(Number) : [];
-            } else if (k === "duration") {
+            if (k === "duration") {
               t.duration = Number(v);
               if (t.mode === "manual")
                 t.finish = shift(
@@ -184,12 +297,16 @@ function render() {
               if (t.mode === "manual") t.finish = v;
             } else if (k === "start") {
               date(v);
+              const calendarDays = Math.round(
+                (+date(v) - +date(computed.start)) / DAY,
+              );
               t.start = v;
               if (t.mode === "manual")
                 t.finish =
                   t.kind === "milestone"
                     ? v
                     : shift(v, Math.max(0, Math.ceil(t.duration) - 1));
+              moveDependentTasks(selected, calendarDays, all);
             } else if (k === "mode") {
               t.mode = v;
               t.start = computed.start;
@@ -224,6 +341,7 @@ function render() {
             const raw = project.tasks.find((r) => r.id === id);
             raw.start = plus(t.start, days);
             if (raw.mode === "manual") raw.finish = plus(t.finish, days);
+            moveDependentTasks(id, days, all);
           });
         el.onpointerup = null;
       };
@@ -241,7 +359,7 @@ function gantt(rows, all) {
     count = Math.round((date(end) - date(start)) / DAY) + 1;
   const available = Math.max(
     440,
-    $("#schedule").clientWidth - (details ? 880 : 643),
+    $("#schedule").clientWidth - (details ? 805 : 568),
   );
   const unit = Math.min(
       scale === "fit"
@@ -341,9 +459,13 @@ function add(kind) {
       color: "#387f78",
     });
     selected = id;
+    selectedIds.clear();
+    selectedIds.add(id);
   });
 }
 async function save() {
+  if (nativeProjectPath) return saveWithNativeShell("save");
+  if (!filename) return saveAsProject();
   try {
     const result = await api("/api/save", {
       project,
@@ -362,6 +484,71 @@ async function save() {
   }
 }
 $("#save").onclick = save;
+function nativeMessenger() {
+  return window.webkit?.messageHandlers?.fieldplan;
+}
+function saveWithNativeShell(action) {
+  const messenger = nativeMessenger();
+  if (!messenger) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    window.fieldplanPendingSave = resolve;
+    messenger.postMessage(
+      JSON.stringify({
+        action,
+        path: nativeProjectPath,
+        project,
+        suggestedName: project.name,
+      }),
+    );
+  });
+}
+function saveAsFallback() {
+  return new Promise((resolve) => {
+    modal(
+      `<h2>Save project as</h2><p>Choose a name for a copy in this planner's projects folder.</p><label>Project file name</label><input id="saveAsName" value="${esc(project.name)}" maxlength="200"><div class="buttons"><button data-close>Cancel</button><button id="confirmSaveAs" class="primary">Save project</button></div>`,
+    );
+    $("#confirmSaveAs").onclick = async () => {
+      try {
+        const name = $("#saveAsName").value.trim();
+        if (!name) throw Error("Enter a project file name.");
+        const result = await api("/api/save", {
+          project,
+          filename: `${name.replace(/\.fieldplan$/i, "")}.fieldplan`,
+        });
+        filename = result.filename;
+        savedRevision = result.revision;
+        dirty = false;
+        close();
+        render();
+        notify("Saved in projects/" + filename);
+        resolve(true);
+      } catch (e) {
+        notify(e.message);
+      }
+    };
+    $("#dialog").addEventListener("close", () => resolve(false), { once: true });
+  });
+}
+function saveAsProject() {
+  return nativeMessenger() ? saveWithNativeShell("save-as") : saveAsFallback();
+}
+$("#saveAs").onclick = saveAsProject;
+window.fieldplanNativeSaveResult = (result) => {
+  const resolve = window.fieldplanPendingSave;
+  window.fieldplanPendingSave = null;
+  if (result?.error) {
+    notify(result.error);
+    resolve?.(false);
+    return;
+  }
+  nativeProjectPath = result.path;
+  filename = null;
+  savedRevision = result.revision;
+  dirty = false;
+  render();
+  notify("Saved in " + result.path);
+  resolve?.(true);
+};
 $("#undo").onclick = () => {
   if (history.length) {
     project = history.pop();
@@ -447,6 +634,7 @@ $("#delete").onclick = () => {
       for (const t of project.tasks)
         t.deps = t.deps.filter((id) => !removed.has(id));
       selected = null;
+      selectedIds.clear();
     });
   };
 };
@@ -556,19 +744,22 @@ $("#export").onclick = () => {
       tasks[0].finish,
     );
   modal(
-    `<h2>A schedule ready to share.</h2><p>Export a vector PDF with a dedicated table and Gantt layout.</p><label>From</label><input id="pdfStart" type="date" value="${min}"><label>Through</label><input id="pdfEnd" type="date" value="${plus(max, 7)}"><label>Timeline scale</label><select id="pdfScale"><option value="week">Weeks</option><option value="day">Days</option><option value="month">Months</option></select><label>Paper</label><select id="pdfPaper"><option value="tabloid">11 × 17 in (Tabloid)</option><option value="legal">8.5 × 14 in (Legal)</option><option value="a3">A3</option><option value="a4">A4</option></select><label>Row spacing</label><select id="pdfDensity"><option value="compact">Compact · more tasks per page</option><option value="comfortable">Comfortable</option></select><label>Orientation</label><select id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select><label>Visible columns</label>${["duration", "start", "finish", "owner"].map((c) => `<label class="check"><input type="checkbox" data-column="${c}" ${c !== "owner" ? "checked" : ""}>${c}</label>`).join("")}<label class="check"><input id="pdfMono" type="checkbox">Grayscale</label><label class="check"><input id="pdfDates" type="checkbox" checked>Milestone dates</label><div class="buttons"><button data-close>Cancel</button><button id="makePdf" class="primary">Create PDF</button></div>`,
+    `<h2>A schedule ready to share.</h2><p>Export a vector PDF with a dedicated table and Gantt layout.</p><label>PDF name</label><input id="pdfName" value="${esc(project.name)}" maxlength="200"><p>This name appears on the PDF and is used for the file name.</p><label>From</label><input id="pdfStart" type="date" value="${min}"><label>Through</label><input id="pdfEnd" type="date" value="${plus(max, 7)}"><label>Timeline scale</label><select id="pdfScale"><option value="week">Weeks</option><option value="day">Days</option><option value="month">Months</option></select><label>Paper</label><select id="pdfPaper"><option value="tabloid">11 × 17 in (Tabloid)</option><option value="legal">8.5 × 14 in (Legal)</option><option value="a3">A3</option><option value="a4">A4</option></select><label>Row spacing</label><select id="pdfDensity"><option value="compact">Compact · more tasks per page</option><option value="comfortable">Comfortable</option></select><label>Orientation</label><select id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select><label>Visible columns</label>${["duration", "start", "finish", "owner"].map((c) => `<label class="check"><input type="checkbox" data-column="${c}" ${c !== "owner" ? "checked" : ""}>${c}</label>`).join("")}<label class="check"><input id="pdfMono" type="checkbox">Grayscale</label><label class="check"><input id="pdfDates" type="checkbox" checked>Milestone dates</label><div class="buttons"><button data-close>Cancel</button><button id="makePdf" class="primary">Create PDF</button></div>`,
   );
   $("#makePdf").onclick = async () => {
     const button = $("#makePdf");
     button.disabled = true;
     try {
-      const start = $("#pdfStart").value,
+      const pdfName = $("#pdfName").value.trim(),
+        start = $("#pdfStart").value,
         end = $("#pdfEnd").value;
+      if (!pdfName) throw Error("Enter a PDF name.");
       date(start);
       date(end);
       if (end < start) throw Error("Export end must be after its start.");
       const result = await api("/api/export", {
-        project: { ...project, tasks },
+        project: { ...project, name: pdfName, tasks },
+        filename: pdfName,
         settings: {
           start,
           end,
@@ -588,7 +779,10 @@ $("#export").onclick = () => {
         `<h2>PDF saved.</h2><p>${esc(result.filename)}</p><p>Saved in the <b>exports</b> folder inside this project.</p><div class="buttons"><button data-close>Done</button><button id="viewPdf" class="primary">Open PDF</button></div>`,
       );
       $("#viewPdf").onclick = () => {
-        window.open(result.url, "_blank");
+        // A WebKitGTK window blocks unrequested pop-ups. Navigating to the
+        // local PDF lets the native shell intercept this URL and hand it to
+        // the system's configured PDF viewer.
+        window.location.assign(result.url);
       };
     } catch (e) {
       notify(e.message);
@@ -597,6 +791,12 @@ $("#export").onclick = () => {
     }
   };
 };
+document.addEventListener("click", (event) => {
+  if (!$("#contextMenu").contains(event.target)) hideContextMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideContextMenu();
+});
 window.addEventListener("beforeunload", (e) => {
   if (dirty) {
     e.preventDefault();
@@ -621,11 +821,12 @@ window.addEventListener("keydown", (e) => {
 window.fieldplanCanClose = () => !dirty;
 try {
   ({ token } = await api("/api/session"));
-  const recent = await api("/api/projects");
-  if (recent.length) {
-    const r = await api("/api/open", { filename: recent[0].filename });
-    load(r.project, recent[0].filename, r.revision);
-  } else render();
+  const launch = await api("/api/launch-project");
+  if (launch.project) {
+    load(launch.project, null, launch.revision);
+    nativeProjectPath = launch.path;
+  }
+  render();
 } catch (e) {
   render();
   notify(e.message);

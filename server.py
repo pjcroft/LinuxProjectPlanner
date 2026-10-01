@@ -26,6 +26,7 @@ for directory in (PROJECTS, EXPORTS, WORK):
     directory.mkdir(parents=True, exist_ok=True)
 TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.Lock()
+LAUNCH_FILE = Path(os.environ["FIELDPLAN_OPEN_FILE"]).resolve() if os.environ.get("FIELDPLAN_OPEN_FILE") else None
 
 
 def slug(name):
@@ -39,6 +40,27 @@ def safe_file(folder, name, suffix):
     if p.is_symlink() or p.resolve().parent != folder.resolve():
         raise ValueError("Invalid file path.")
     return p
+
+
+def export_filename(name, fallback):
+    if name is None:
+        return fallback
+    if not isinstance(name, str) or Path(name).name != name:
+        raise ValueError("Invalid PDF name.")
+    stem = slug(Path(name).stem)
+    return stem + ".pdf"
+
+
+def available_export_file(filename):
+    candidate = safe_file(EXPORTS, filename, ".pdf")
+    if not candidate.exists():
+        return candidate
+    stem = candidate.stem
+    for suffix in range(2, 1000):
+        candidate = safe_file(EXPORTS, f"{stem}-{suffix}.pdf", ".pdf")
+        if not candidate.exists():
+            return candidate
+    raise ValueError("Too many PDFs share this name. Choose a different PDF name.")
 
 
 def validate(p, scheduled=False):
@@ -157,6 +179,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/session":
                 return self.reply({"token": TOKEN})
+            if path == "/api/launch-project":
+                if not LAUNCH_FILE or not LAUNCH_FILE.is_file() or LAUNCH_FILE.is_symlink():
+                    return self.reply({"project": None})
+                project = validate(json.loads(LAUNCH_FILE.read_text()))
+                return self.reply(
+                    {
+                        "project": project,
+                        "path": str(LAUNCH_FILE),
+                        "revision": revision(LAUNCH_FILE),
+                    }
+                )
             if path == "/api/projects":
                 items = []
                 for p in PROJECTS.glob("*.fieldplan"):
@@ -263,14 +296,15 @@ class Handler(BaseHTTPRequestHandler):
                 p = validate(data["project"], scheduled=True)
                 if not p["tasks"]:
                     raise ValueError("Add tasks before exporting.")
-                filename = slug(p["name"]) + "-" + uuid.uuid4().hex[:6] + ".pdf"
-                file = safe_file(EXPORTS, filename, ".pdf")
                 with LOCK:
+                    file = available_export_file(
+                        export_filename(data.get("filename"), slug(p["name"]) + ".pdf")
+                    )
                     pages = export_pdf(p, data["settings"], file)
                 from urllib.parse import quote
 
                 return self.reply(
-                    {"filename": filename, "pages": pages, "url": "/exports/" + quote(filename)}
+                    {"filename": file.name, "pages": pages, "url": "/exports/" + quote(file.name)}
                 )
             return self.reply({"error": "Not found."}, 404)
         except (

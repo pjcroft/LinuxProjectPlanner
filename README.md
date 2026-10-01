@@ -6,6 +6,8 @@ A local Linux desktop planner with an editable task grid, linked Gantt chart, on
 
 Run `./launch.sh` from the project folder. The dependencies have already been downloaded locally. An imported reference plan is available in **Open project** on this machine; customer files are not included in this repository.
 
+To add **Fieldplan** to your Linux application menu and make `.fieldplan` files open in it, run `./install-desktop.sh` once. It installs only for your user account and does not require an administrator password.
+
 ## Install on another Linux machine
 
 Requires Python 3.12 or later, GTK 3, and WebKitGTK 4.1. On Ubuntu/Debian:
@@ -18,17 +20,20 @@ sudo apt install python3 python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4
 
 Setup downloads Python packages and a checksum-verified Eclipse Temurin Java 21 runtime **inside this folder**. Java is used only for MPP import. Normal app use is offline. The interface is local HTML/JavaScript inside a native GTK/WebKit window; no Node, Rust, hosted website, or frontend build is needed.
 
+Fieldplan deliberately uses WebKit's software compositing mode on this machine. It avoids a current Mesa/EGL crash in the installed WebKitGTK build and does not affect planning or PDF export.
+
 ## Everyday workflow
 
 1. **New project** sets the name and initial date.
 2. Add a **Phase**, **Task**, or **Milestone**. Selecting a phase before adding inserts a child; selecting a task inserts its next sibling.
-3. Edit task cells. Predecessors are task IDs separated by commas. **More columns** exposes owners, colors, and scheduling mode.
-4. Use **Indent / Outdent** for the outline. Phases calculate their dates from children. Collapse a phase with its triangle.
-5. Choose **Fit timeline**, Day, Week, or Month. Drag an ordinary task bar or milestone to move it; automatic dependencies may constrain its new date.
-6. **Save project** (Ctrl+S) writes a `.fieldplan` JSON file under `projects/`. **Open project** lists saved plans and can read another `.fieldplan` or JSON project.
-7. **Export PDF** writes under `exports/`. Choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates.
+3. Edit task cells. Weekday abbreviations appear before each start and finish date. **More columns** exposes owners, colors, and scheduling mode.
+4. To create a dependency, select the predecessor, Ctrl-click the successor, then right-click either selected row and choose **Make dependent**. A fixed-date successor shifts right when needed. Right-click a linked task and choose **Break dependency** to remove its link while keeping its current dates. Existing links remain visible as arrows in the Gantt chart.
+5. Use **Indent / Outdent** for the outline. Phases calculate their dates from children. Collapse a phase with its triangle.
+6. Choose **Fit timeline**, Day, Week, or Month. Drag an ordinary task bar or milestone to move it; automatic dependencies may constrain its new date.
+7. **Save project** (Ctrl+S) opens a Linux file chooser the first time, then saves back to the selected file. **Save as project** always opens the chooser to select a folder and filename. **Open project** lists saved plans and can read another `.fieldplan` or JSON project.
+8. **Export PDF** writes under `exports/`. Set the PDF name, which controls both its on-page title and filename, then choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates.
 
-The app opens the most recently saved plan. Save is explicit; unsaved changes are protected by prompts when switching projects or closing the native window. Undo retains up to 60 edits within the current session. Deleting a phase also removes its children and incoming references, with confirmation and undo.
+The app opens a clean untitled project. Use **Open project** to return to a saved plan. Save is explicit; unsaved changes are protected by prompts when switching projects or closing the native window. Undo retains up to 60 edits within the current session. Deleting a phase also removes its children and incoming references, with confirmation and undo.
 
 ## Microsoft Project import
 
@@ -71,7 +76,6 @@ Browser smoke testing additionally requires Playwright and Chromium; set `PLAYWR
 
 - Working calendars, holidays, dependency types and lag, with an import review screen.
 - Search/filter, movable rows, richer task details, and keyboard navigation.
-- Linux packaging and an installable desktop launcher.
 
 This is an initial working release, not a replacement for every Microsoft Project feature.
 

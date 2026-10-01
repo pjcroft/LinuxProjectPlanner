@@ -70,6 +70,23 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(HTTPError):
             self.request("/api/save", {"project": {"name": "bad"}})
 
+    def test_export_names_are_sanitized_and_never_overwrite(self):
+        self.assertEqual(
+            server.export_filename("Customer plan", "fallback.pdf"), "Customer plan.pdf"
+        )
+        self.assertEqual(
+            server.export_filename("Customer plan.pdf", "fallback.pdf"), "Customer plan.pdf"
+        )
+        with self.assertRaises(ValueError):
+            server.export_filename("../outside", "fallback.pdf")
+        first = server.EXPORTS / "service-name-test.pdf"
+        second = server.EXPORTS / "service-name-test-2.pdf"
+        try:
+            first.write_bytes(b"existing")
+            self.assertEqual(server.available_export_file(first.name), second)
+        finally:
+            first.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()

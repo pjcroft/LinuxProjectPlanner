@@ -32,16 +32,35 @@ const path = require("node:path");
     await page.getByLabel("Task 2 duration", { exact: true }).fill("3");
     await page.getByLabel("Task 2 duration", { exact: true }).press("Tab");
     await page.locator("#addMilestone").click();
-    await page.getByLabel("Task 3 predecessors", { exact: true }).fill("2");
-    await page.getByLabel("Task 3 predecessors", { exact: true }).press("Tab");
+    await page.locator("#details").click();
+    await page
+      .getByLabel("Task 3 scheduling", { exact: true })
+      .selectOption("manual");
+    await page.locator('tr[data-id="2"]').click();
+    await page.locator('tr[data-id="3"]').click({ modifiers: ["Control"] });
+    await page.locator('tr[data-id="3"]').click({ button: "right" });
+    await page.locator("#makeDependent").click();
     assert.equal(
       await page.getByLabel("Task 3 start", { exact: true }).inputValue(),
       "2026-10-07",
+    );
+    await page.getByLabel("Task 2 start", { exact: true }).fill("2026-10-05");
+    await page.getByLabel("Task 2 start", { exact: true }).press("Tab");
+    assert.equal(
+      await page.getByLabel("Task 3 start", { exact: true }).inputValue(),
+      "2026-10-10",
+    );
+    await page.locator('tr[data-id="3"]').click({ button: "right" });
+    await page.locator("[data-break-dependency=\"2\"]").click();
+    assert.equal(
+      await page.getByLabel("Task 3 start", { exact: true }).inputValue(),
+      "2026-10-10",
     );
     const response = page.waitForResponse(
       (r) => r.url().endsWith("/api/save") && r.status() === 200,
     );
     await page.locator("#save").click();
+    await page.locator("#confirmSaveAs").click();
     createdFile = (await (await response).json()).filename;
     await page.reload();
     await page.waitForSelector("tr[data-id]");
@@ -50,22 +69,11 @@ const path = require("node:path");
       await page.locator("#projectName").inputValue(),
       "UI smoke test",
     );
-    await page.getByLabel("Task 2 predecessors", { exact: true }).fill("3");
-    await page.getByLabel("Task 2 predecessors", { exact: true }).press("Tab");
-    await page
-      .getByText("These dependencies create a cycle.", { exact: true })
-      .waitFor();
-    assert.equal(
-      await page
-        .getByLabel("Task 2 predecessors", { exact: true })
-        .inputValue(),
-      "",
-    );
+    assert.equal(await page.getByText("Predecessors", { exact: true }).count(), 0);
     await page.locator('[data-collapse="1"]').click();
     assert.equal(await page.locator("tr[data-id]").count(), 1);
     await page.locator('[data-collapse="1"]').click();
     assert.equal(await page.locator("tr[data-id]").count(), 3);
-    await page.locator("#details").click();
     await page.getByLabel("Task 2 owner", { exact: true }).fill("Workshop");
     await page.getByLabel("Task 2 owner", { exact: true }).press("Tab");
     await page.locator("#undo").click();
@@ -93,13 +101,14 @@ const path = require("node:path");
       fullPage: true,
     });
     await page.locator("#export").click();
+    await page.locator("#pdfName").fill("UI smoke export");
     await page.locator("#pdfPaper").selectOption("a3");
     await page.locator("#pdfScale").selectOption("week");
     await page.locator("#makePdf").click();
     await page.getByText("PDF saved.", { exact: true }).waitFor();
     assert.deepEqual(errors, []);
     console.log(
-      "UI passed: edit, dependencies, cycle rejection, collapse, undo, details, save/reload, PDF export" +
+      "UI passed: edit, right-click dependency creation, collapse, undo, details, save/reload, PDF export" +
         (process.env.MPP_TEST_FILE ? ", real MPP import." : "."),
     );
   } finally {

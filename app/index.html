@@ -34,27 +34,10 @@
         </div>
         <div class="actions">
           <button id="save">Save project</button
+          ><button id="saveAs">Save as project…</button
           ><button class="primary" id="export">Export PDF ↗</button>
         </div>
       </header>
-      <section class="overview">
-        <div>
-          <span class="metric" id="taskCount">0</span><small>ACTIVITIES</small>
-        </div>
-        <div>
-          <span class="metric" id="endDate">—</span
-          ><small>PLANNED FINISH</small>
-        </div>
-        <div>
-          <span class="metric" id="milestoneCount">0</span
-          ><small>MILESTONES</small>
-        </div>
-        <p>
-          <span class="dot"></span> A clear path from plan to delivery.<small
-            >Working days · Finish-to-start dependencies</small
-          >
-        </p>
-      </section>
       <section class="workspace">
         <div class="toolbar">
           <div class="tabs">Schedule <span>TABLE + GANTT</span></div>
@@ -83,7 +66,7 @@
         </div>
         <div class="hint">
           Select a row to organize it. Edit any cell to update the schedule.
-          <span>Predecessors: task IDs, separated by commas.</span>
+          <span>Ctrl-click a successor, then right-click to add or break a dependency.</span>
         </div>
         <div id="schedule" class="schedule"></div>
         <footer>
@@ -98,6 +81,7 @@
         </footer>
       </section>
       <div id="notice" role="status" aria-live="polite"></div>
+      <div id="contextMenu" role="menu" hidden></div>
     </main>
     <input type="file" id="file" accept=".json,.fieldplan" hidden />
     <dialog id="dialog"><div id="dialogContent"></div></dialog>
