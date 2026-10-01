@@ -26,7 +26,7 @@ Setup downloads Python packages and a checksum-verified Eclipse Temurin Java 21 
 4. Use **Indent / Outdent** for the outline. Phases calculate their dates from children. Collapse a phase with its triangle.
 5. Choose **Fit timeline**, Day, Week, or Month. Drag an ordinary task bar or milestone to move it; automatic dependencies may constrain its new date.
 6. **Save project** (Ctrl+S) writes a `.fieldplan` JSON file under `projects/`. **Open project** lists saved plans and can read another `.fieldplan` or JSON project.
-7. **Export PDF** writes under `exports/`. Choose dates, day/week/month scale, A3/Legal/A4, orientation, columns, compact/comfortable rows, grayscale, and milestone dates.
+7. **Export PDF** writes under `exports/`. Choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates.
 
 The app opens the most recently saved plan. Save is explicit; unsaved changes are protected by prompts when switching projects or closing the native window. Undo retains up to 60 edits within the current session. Deleting a phase also removes its children and incoming references, with confirmation and undo.
 

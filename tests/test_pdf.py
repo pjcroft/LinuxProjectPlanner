@@ -91,6 +91,42 @@ class PdfTests(unittest.TestCase):
             r = PdfReader(output)
             self.assertLess(float(r.pages[0].mediabox.width), float(r.pages[0].mediabox.height))
 
+    def test_tabloid_and_legal_have_requested_dimensions(self):
+        tasks = [
+            {
+                "id": 1,
+                "name": "Activity",
+                "level": 0,
+                "kind": "task",
+                "duration": 1,
+                "start": "2026-10-01",
+                "finish": "2026-10-01",
+                "owner": "",
+                "deps": [],
+                "color": "#387f78",
+            }
+        ]
+        with tempfile.TemporaryDirectory(dir=ROOT / ".runtime") as tmp:
+            for paper, expected in (("tabloid", (1224, 792)), ("legal", (1008, 612))):
+                output = Path(tmp) / f"{paper}.pdf"
+                export_pdf(
+                    {"name": paper, "tasks": tasks},
+                    {
+                        "start": "2026-10-01",
+                        "end": "2026-10-02",
+                        "scale": "day",
+                        "paper": paper,
+                        "orientation": "landscape",
+                        "columns": [],
+                    },
+                    output,
+                )
+                page = PdfReader(output).pages[0]
+                self.assertEqual(
+                    (round(float(page.mediabox.width)), round(float(page.mediabox.height))),
+                    expected,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

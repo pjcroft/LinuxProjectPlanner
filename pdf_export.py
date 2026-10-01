@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from math import ceil
 from pathlib import Path
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A3, A4, legal, landscape, portrait
+from reportlab.lib.pagesizes import A3, A4, TABLOID, legal, landscape, portrait
 from reportlab.lib.colors import HexColor, Color, white
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -36,7 +36,9 @@ def export_pdf(project, settings, output):
     scale = settings.get("scale", "week")
     if scale not in ("day", "week", "month"):
         raise ValueError("Invalid timeline scale.")
-    paper = {"a3": A3, "a4": A4, "legal": legal}.get(settings.get("paper"), A3)
+    paper = {"tabloid": TABLOID, "legal": legal, "a3": A3, "a4": A4}.get(
+        settings.get("paper"), TABLOID
+    )
     width, height = (portrait if settings.get("orientation") == "portrait" else landscape)(paper)
     margin = 26
     usable = width - 2 * margin
