@@ -1,4 +1,4 @@
-# Initial release validation — 2026-10-01
+# PC Plan validation baseline — 2026-10-01
 
 ## Passed
 
@@ -9,10 +9,13 @@
 - Native GTK/WebKit smoke test: the actual desktop engine loaded and rendered the 49 imported activities. Its screenshot was inspected.
 - The supplied real MPP was read with MPXJ 16.9.0. It yielded 49 named, dated activities and eight finish-to-start links. Source files were not edited. The imported local project is saved separately under `projects/`.
 - A compact, single-page A3 landscape export from that plan was rendered and visually inspected. A two-page Legal export was also inspected before adding compact spacing. Both use actual vector PDF layout, not screenshots.
+- PDF preview uses the same vector renderer as the final export. The preview pages are rendered with Poppler and shown in the export dialog before creating the final PDF.
+- Native project and PDF save dialogs use GTK dialogs after Ubuntu's portal chooser intermittently failed to appear.
+- The `pc-plan_0.1.0_amd64.deb` package was built and inspected. Its bundled Python/Java importer runtime started successfully, its PDF tests passed, and all seven scheduling tests passed.
 
 ## Limits of this validation
 
-The real-file import was checked against one supplied MPP. It is not a broad compatibility certification for arbitrary versions/calendars. JavaScript interaction coverage runs in Chromium; the native WebKit test verifies load/render, not every native file-dialog interaction. Setup was assembled from downloaded project-local dependencies on the development machine; a clean-machine setup has not yet been exercised. Packaging as a .deb/AppImage is not implemented.
+The real-file import was checked against one supplied MPP. It is not a broad compatibility certification for arbitrary versions/calendars. JavaScript interaction coverage runs in Chromium; the native WebKit test verifies load/render, not every native file-dialog interaction. The Debian package is AMD64-only and intended for Ubuntu/Debian systems with the declared GTK/WebKit dependencies. It has not yet been installed on a separate physical laptop. AppImage, Flatpak, and ARM64 builds are not yet provided.
 
 Source dates are intentionally fixed on import. Auto scheduling does not model holidays, time-of-day, advanced dependency types, lag, leveling, or Microsoft Project constraints. Summary durations are weekday spans and can differ from the imported plan's original calendar duration. Import does not preserve custom visual formatting.
 
