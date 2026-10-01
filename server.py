@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
@@ -22,7 +23,8 @@ sys.path.insert(0, str(ROOT / ".runtime/python"))
 PROJECTS = ROOT / "projects"
 EXPORTS = ROOT / "exports"
 WORK = ROOT / ".runtime/work"
-for directory in (PROJECTS, EXPORTS, WORK):
+PREVIEWS = WORK / "previews"
+for directory in (PROJECTS, EXPORTS, WORK, PREVIEWS):
     directory.mkdir(parents=True, exist_ok=True)
 TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.Lock()
@@ -61,6 +63,39 @@ def available_export_file(filename):
         if not candidate.exists():
             return candidate
     raise ValueError("Too many PDFs share this name. Choose a different PDF name.")
+
+
+def render_preview(project, settings):
+    """Render disposable page images from the same vector PDF used for export."""
+    from pdf_export import export_pdf
+
+    cutoff = time.time() - 60 * 60
+    for old_file in PREVIEWS.glob("*"):
+        try:
+            if old_file.is_file() and old_file.stat().st_mtime < cutoff:
+                old_file.unlink()
+        except OSError:
+            pass
+    token = uuid.uuid4().hex
+    pdf_file = PREVIEWS / f"{token}.pdf"
+    prefix = PREVIEWS / token
+    pages = export_pdf(project, settings, pdf_file)
+    result = subprocess.run(
+        ["pdftoppm", "-png", "-r", "110", str(pdf_file), str(prefix)],
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    pdf_file.unlink(missing_ok=True)
+    if result.returncode:
+        raise ValueError("Unable to render PDF preview: " + result.stderr.strip())
+    images = []
+    for number in range(1, pages + 1):
+        image = PREVIEWS / f"{token}-{number}.png"
+        if not image.is_file():
+            raise ValueError("PDF preview did not render every page.")
+        images.append(f"/previews/{image.name}")
+    return images
 
 
 def validate(p, scheduled=False):
@@ -209,6 +244,12 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/exports/"):
                 file = safe_file(EXPORTS, unquote(path[len("/exports/") :]), ".pdf")
                 mime = "application/pdf"
+            elif path.startswith("/previews/"):
+                name = unquote(path[len("/previews/") :])
+                if not re.fullmatch(r"[0-9a-f]{32}-[1-9][0-9]*\.png", name):
+                    raise ValueError("Invalid preview path.")
+                file = PREVIEWS / name
+                mime = "image/png"
             else:
                 assets = {
                     "/": ("index.html", "text/html"),
@@ -306,6 +347,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(
                     {"filename": file.name, "pages": pages, "url": "/exports/" + quote(file.name)}
                 )
+            if path == "/api/preview":
+                p = validate(data["project"], scheduled=True)
+                if not p["tasks"]:
+                    raise ValueError("Add tasks before previewing.")
+                with LOCK:
+                    images = render_preview(p, data["settings"])
+                return self.reply({"pages": images})
             return self.reply({"error": "Not found."}, 404)
         except (
             ValueError,

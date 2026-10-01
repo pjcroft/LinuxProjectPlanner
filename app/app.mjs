@@ -88,8 +88,14 @@ function moveDependentTasks(taskId, calendarDays, scheduledTasks) {
   moveSuccessors(taskId);
 }
 function modal(html) {
-  $("#dialogContent").innerHTML = html;
+  replaceModal(html);
   $("#dialog").showModal();
+  $("#dialog")
+    .querySelectorAll("[data-close]")
+    .forEach((b) => (b.onclick = () => $("#dialog").close()));
+}
+function replaceModal(html) {
+  $("#dialogContent").innerHTML = html;
   $("#dialog")
     .querySelectorAll("[data-close]")
     .forEach((b) => (b.onclick = () => $("#dialog").close()));
@@ -502,6 +508,14 @@ function saveWithNativeShell(action) {
     );
   });
 }
+function savePdfWithNativeShell(request) {
+  const messenger = nativeMessenger();
+  if (!messenger) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    window.fieldplanPendingPdf = resolve;
+    messenger.postMessage(JSON.stringify(request));
+  });
+}
 function saveAsFallback() {
   return new Promise((resolve) => {
     modal(
@@ -549,6 +563,16 @@ window.fieldplanNativeSaveResult = (result) => {
   notify("Saved in " + result.path);
   resolve?.(true);
 };
+window.fieldplanNativePdfResult = (result) => {
+  const resolve = window.fieldplanPendingPdf;
+  window.fieldplanPendingPdf = null;
+  if (result?.error) {
+    notify(result.error);
+    resolve?.(null);
+    return;
+  }
+  resolve?.(result.path);
+};
 $("#undo").onclick = () => {
   if (history.length) {
     project = history.pop();
@@ -574,6 +598,12 @@ $("#scale").onchange = (e) => {
   scale = e.target.value;
   render();
 };
+let resizeTimer;
+window.addEventListener("resize", () => {
+  if (scale !== "fit") return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(render, 80);
+});
 $("#details").onclick = () => {
   details = !details;
   $("#details").textContent = details ? "Fewer columns" : "More columns";
@@ -643,7 +673,7 @@ $("#new").onclick = async () => {
   modal(
     `<h2>A fresh start.</h2><p>Give your project a name and its first working day.</p><label>Project name</label><input id="newName" value="Untitled project" maxlength="200"><label>Start date</label><input id="newStart" type="date" value="${iso(new Date())}"><div class="buttons"><button data-close>Cancel</button><button id="create" class="primary">Create project</button></div>`,
   );
-  $("#create").onclick = () => {
+  $("#create").onclick = async () => {
     try {
       load(
         blank(
@@ -654,6 +684,7 @@ $("#new").onclick = async () => {
       dirty = true;
       close();
       render();
+      await saveAsProject();
     } catch (e) {
       notify(e.message);
     }
@@ -729,12 +760,88 @@ $("#file").onchange = async (e) => {
   }
   e.target.value = "";
 };
-$("#export").onclick = () => {
-  const tasks = schedule(project);
-  if (!tasks.length) {
-    notify("Add a task before exporting.");
-    return;
+function exportOptionsFromDialog() {
+  const name = $("#pdfName").value.trim();
+  const start = $("#pdfStart").value;
+  const end = $("#pdfEnd").value;
+  if (!name) throw Error("Enter a PDF name.");
+  date(start);
+  date(end);
+  if (end < start) throw Error("Export end must be after its start.");
+  return {
+    name,
+    start,
+    end,
+    scale: $("#pdfScale").value,
+    paper: $("#pdfPaper").value,
+    orientation: $("#pdfOrientation").value,
+    density: $("#pdfDensity").value,
+    columns: [...document.querySelectorAll("[data-column]:checked")].map(
+      (element) => element.dataset.column,
+    ),
+    mono: $("#pdfMono").checked,
+    milestoneDates: $("#pdfDates").checked,
+  };
+}
+function exportPayload(tasks, options) {
+  const { name, ...settings } = options;
+  return {
+    project: { ...project, name, tasks },
+    filename: name,
+    settings,
+  };
+}
+async function createPdf(tasks, options, button) {
+  button.disabled = true;
+  try {
+    const destination = await savePdfWithNativeShell({
+      action: "save-pdf-as",
+      suggestedName: options.name,
+    });
+    if (nativeMessenger() && !destination) return;
+    const result = await api("/api/export", exportPayload(tasks, options));
+    const savedPath = destination
+      ? await savePdfWithNativeShell({
+          action: "move-pdf",
+          filename: result.filename,
+          path: destination,
+        })
+      : null;
+    if (destination && !savedPath)
+      throw Error("The PDF was created but could not be moved to the chosen location.");
+    close();
+    modal(
+      `<h2>PDF saved.</h2><p>${esc(savedPath || result.filename)}</p><p>${savedPath ? "Saved in the folder you selected." : "Saved in the <b>exports</b> folder inside this project."}</p><div class="buttons"><button data-close>Done</button><button id="viewPdf" class="primary">Open PDF</button></div>`,
+    );
+    $("#viewPdf").onclick = () => {
+      if (savedPath) savePdfWithNativeShell({ action: "open-pdf", path: savedPath });
+      else window.location.assign(result.url);
+    };
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    button.disabled = false;
   }
+}
+function showPdfPreview(tasks, options) {
+  replaceModal(
+    `<h2>Preparing preview…</h2><p>Rendering your current paper and layout settings.</p>`,
+  );
+  api("/api/preview", exportPayload(tasks, options))
+    .then((result) => {
+      replaceModal(
+        `<h2>PDF preview</h2><p>${result.pages.length} page${result.pages.length === 1 ? "" : "s"}. This is a preview only; it has not been saved to exports.</p><div class="pdf-preview-pages">${result.pages.map((page, index) => `<figure><figcaption>Page ${index + 1}</figcaption><img src="${page}" alt="PDF preview page ${index + 1}"></figure>`).join("")}</div><div class="buttons"><button id="backToExport">Back to options</button><button id="createFromPreview" class="primary">Create PDF</button></div>`,
+      );
+      $("#backToExport").onclick = () => openExportDialog(tasks, options, true);
+      $("#createFromPreview").onclick = (event) =>
+        createPdf(tasks, options, event.currentTarget);
+    })
+    .catch((error) => {
+      notify(error.message);
+      openExportDialog(tasks, options, true);
+    });
+}
+function openExportDialog(tasks, options, replace = false) {
   const min = tasks.reduce(
       (a, t) => (a < t.start ? a : t.start),
       tasks[0].start,
@@ -743,53 +850,42 @@ $("#export").onclick = () => {
       (a, t) => (a > t.finish ? a : t.finish),
       tasks[0].finish,
     );
-  modal(
-    `<h2>A schedule ready to share.</h2><p>Export a vector PDF with a dedicated table and Gantt layout.</p><label>PDF name</label><input id="pdfName" value="${esc(project.name)}" maxlength="200"><p>This name appears on the PDF and is used for the file name.</p><label>From</label><input id="pdfStart" type="date" value="${min}"><label>Through</label><input id="pdfEnd" type="date" value="${plus(max, 7)}"><label>Timeline scale</label><select id="pdfScale"><option value="week">Weeks</option><option value="day">Days</option><option value="month">Months</option></select><label>Paper</label><select id="pdfPaper"><option value="tabloid">11 × 17 in (Tabloid)</option><option value="legal">8.5 × 14 in (Legal)</option><option value="a3">A3</option><option value="a4">A4</option></select><label>Row spacing</label><select id="pdfDensity"><option value="compact">Compact · more tasks per page</option><option value="comfortable">Comfortable</option></select><label>Orientation</label><select id="pdfOrientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select><label>Visible columns</label>${["duration", "start", "finish", "owner"].map((c) => `<label class="check"><input type="checkbox" data-column="${c}" ${c !== "owner" ? "checked" : ""}>${c}</label>`).join("")}<label class="check"><input id="pdfMono" type="checkbox">Grayscale</label><label class="check"><input id="pdfDates" type="checkbox" checked>Milestone dates</label><div class="buttons"><button data-close>Cancel</button><button id="makePdf" class="primary">Create PDF</button></div>`,
-  );
-  $("#makePdf").onclick = async () => {
-    const button = $("#makePdf");
-    button.disabled = true;
+  const values = options || {
+    name: project.name,
+    start: min,
+    end: plus(max, 7),
+    scale: "week",
+    paper: "tabloid",
+    orientation: "landscape",
+    density: "compact",
+    columns: ["duration", "start", "finish"],
+    mono: false,
+    milestoneDates: true,
+  };
+  const selected = (value, current) => (value === current ? "selected" : "");
+  const checked = (value) => (value ? "checked" : "");
+  const content = `<h2>A schedule ready to share.</h2><p>Preview the exact paper and layout before you save the PDF.</p><label>PDF name</label><input id="pdfName" value="${esc(values.name)}" maxlength="200"><p>This name appears on the PDF and is used for the file name.</p><label>From</label><input id="pdfStart" type="date" value="${values.start}"><label>Through</label><input id="pdfEnd" type="date" value="${values.end}"><label>Timeline scale</label><select id="pdfScale"><option value="week" ${selected("week", values.scale)}>Weeks</option><option value="day" ${selected("day", values.scale)}>Days</option><option value="month" ${selected("month", values.scale)}>Months</option></select><label>Paper</label><select id="pdfPaper"><option value="tabloid" ${selected("tabloid", values.paper)}>11 × 17 in (Tabloid)</option><option value="legal" ${selected("legal", values.paper)}>8.5 × 14 in (Legal)</option><option value="a3" ${selected("a3", values.paper)}>A3</option><option value="a4" ${selected("a4", values.paper)}>A4</option></select><label>Row spacing</label><select id="pdfDensity"><option value="compact" ${selected("compact", values.density)}>Compact · more tasks per page</option><option value="comfortable" ${selected("comfortable", values.density)}>Comfortable</option></select><label>Orientation</label><select id="pdfOrientation"><option value="landscape" ${selected("landscape", values.orientation)}>Landscape</option><option value="portrait" ${selected("portrait", values.orientation)}>Portrait</option></select><label>Visible columns</label>${["duration", "start", "finish", "owner"].map((column) => `<label class="check"><input type="checkbox" data-column="${column}" ${checked(values.columns.includes(column))}>${column}</label>`).join("")}<label class="check"><input id="pdfMono" type="checkbox" ${checked(values.mono)}>Grayscale</label><label class="check"><input id="pdfDates" type="checkbox" ${checked(values.milestoneDates)}>Milestone dates</label><div class="buttons"><button data-close>Cancel</button><button id="previewPdf">Preview PDF</button><button id="makePdf" class="primary">Create PDF</button></div>`;
+  if (replace) replaceModal(content);
+  else modal(content);
+  $("#previewPdf").onclick = () => {
     try {
-      const pdfName = $("#pdfName").value.trim(),
-        start = $("#pdfStart").value,
-        end = $("#pdfEnd").value;
-      if (!pdfName) throw Error("Enter a PDF name.");
-      date(start);
-      date(end);
-      if (end < start) throw Error("Export end must be after its start.");
-      const result = await api("/api/export", {
-        project: { ...project, name: pdfName, tasks },
-        filename: pdfName,
-        settings: {
-          start,
-          end,
-          scale: $("#pdfScale").value,
-          paper: $("#pdfPaper").value,
-          orientation: $("#pdfOrientation").value,
-          density: $("#pdfDensity").value,
-          columns: [...document.querySelectorAll("[data-column]:checked")].map(
-            (e) => e.dataset.column,
-          ),
-          mono: $("#pdfMono").checked,
-          milestoneDates: $("#pdfDates").checked,
-        },
-      });
-      close();
-      modal(
-        `<h2>PDF saved.</h2><p>${esc(result.filename)}</p><p>Saved in the <b>exports</b> folder inside this project.</p><div class="buttons"><button data-close>Done</button><button id="viewPdf" class="primary">Open PDF</button></div>`,
-      );
-      $("#viewPdf").onclick = () => {
-        // A WebKitGTK window blocks unrequested pop-ups. Navigating to the
-        // local PDF lets the native shell intercept this URL and hand it to
-        // the system's configured PDF viewer.
-        window.location.assign(result.url);
-      };
-    } catch (e) {
-      notify(e.message);
-    } finally {
-      button.disabled = false;
+      showPdfPreview(tasks, exportOptionsFromDialog());
+    } catch (error) {
+      notify(error.message);
     }
   };
+  $("#makePdf").onclick = (event) => {
+    try {
+      createPdf(tasks, exportOptionsFromDialog(), event.currentTarget);
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+}
+$("#export").onclick = () => {
+  const tasks = schedule(project);
+  if (!tasks.length) return notify("Add a task before exporting.");
+  openExportDialog(tasks);
 };
 document.addEventListener("click", (event) => {
   if (!$("#contextMenu").contains(event.target)) hideContextMenu();

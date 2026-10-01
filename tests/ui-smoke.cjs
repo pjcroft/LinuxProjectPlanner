@@ -104,11 +104,14 @@ const path = require("node:path");
     await page.locator("#pdfName").fill("UI smoke export");
     await page.locator("#pdfPaper").selectOption("a3");
     await page.locator("#pdfScale").selectOption("week");
+    await page.locator("#previewPdf").click();
+    await page.locator(".pdf-preview-pages img").first().waitFor();
+    await page.locator("#backToExport").click();
     await page.locator("#makePdf").click();
     await page.getByText("PDF saved.", { exact: true }).waitFor();
     assert.deepEqual(errors, []);
     console.log(
-      "UI passed: edit, right-click dependency creation, collapse, undo, details, save/reload, PDF export" +
+      "UI passed: edit, right-click dependency creation, collapse, undo, details, save/reload, PDF preview/export" +
         (process.env.MPP_TEST_FILE ? ", real MPP import." : "."),
     );
   } finally {

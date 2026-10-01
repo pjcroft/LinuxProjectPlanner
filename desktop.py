@@ -3,6 +3,7 @@
 
 import os
 import signal
+import shutil
 import subprocess
 import sys
 import json
@@ -63,12 +64,18 @@ view.get_settings().set_enable_developer_extras(False)
 window.add(view)
 closing = False
 native_project_paths = set()
+native_pdf_paths = set()
 if opened_project:
     native_project_paths.add(str(opened_project))
 
 
 def reply_to_save_request(data):
     script = "window.fieldplanNativeSaveResult(" + json.dumps(data) + ");"
+    view.evaluate_javascript(script, -1, None, None, None, None)
+
+
+def reply_to_pdf_request(data):
+    script = "window.fieldplanNativePdfResult(" + json.dumps(data) + ");"
     view.evaluate_javascript(script, -1, None, None, None, None)
 
 
@@ -129,7 +136,52 @@ def choose_save_path(project, suggested_name):
     chooser.show_all()
 
 
+def choose_pdf_path(suggested_name):
+    chooser = Gtk.FileChooserDialog(
+        title="Save PDF as",
+        parent=window,
+        action=Gtk.FileChooserAction.SAVE,
+    )
+    chooser.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save PDF", Gtk.ResponseType.ACCEPT)
+    chooser.set_do_overwrite_confirmation(True)
+    chooser.set_current_folder(str(ROOT / "exports"))
+    suggested = Path(str(suggested_name or "project")).name
+    chooser.set_current_name((suggested.removesuffix(".pdf") or "project") + ".pdf")
+
+    def chosen(dialog, response):
+        try:
+            if response == Gtk.ResponseType.ACCEPT:
+                path = Path(dialog.get_filename())
+                if path.suffix.lower() != ".pdf":
+                    path = path.with_suffix(".pdf")
+                native_pdf_paths.add(str(path))
+                reply_to_pdf_request({"path": str(path)})
+            else:
+                reply_to_pdf_request({"error": "Save cancelled."})
+        finally:
+            dialog.destroy()
+
+    chooser.connect("response", chosen)
+    chooser.show_all()
+
+
+def move_exported_pdf(filename, destination):
+    if not isinstance(filename, str) or Path(filename).name != filename or not filename.endswith(".pdf"):
+        raise ValueError("Invalid PDF file.")
+    if destination not in native_pdf_paths:
+        raise ValueError("Choose a PDF location first.")
+    source = ROOT / "exports" / filename
+    target = Path(destination)
+    if not source.is_file() or source.resolve().parent != (ROOT / "exports").resolve():
+        raise ValueError("The exported PDF could not be found.")
+    if source.resolve() == target.resolve():
+        return target
+    shutil.move(str(source), str(target))
+    return target
+
+
 def native_message(manager, message):
+    action = None
     try:
         payload = message.get_js_value().to_string()
         request = json.loads(payload)
@@ -140,11 +192,23 @@ def native_message(manager, message):
             choose_save_path(project, request.get("suggestedName"))
         elif action == "save" and request.get("path") in native_project_paths:
             save_to_path(request["path"], project)
+        elif action == "save-pdf-as":
+            choose_pdf_path(request.get("suggestedName"))
+        elif action == "move-pdf":
+            path = move_exported_pdf(request.get("filename"), request.get("path"))
+            reply_to_pdf_request({"path": str(path)})
+        elif action == "open-pdf" and request.get("path") in native_pdf_paths:
+            subprocess.Popen(
+                ["xdg-open", request["path"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            reply_to_pdf_request({"path": request["path"]})
         else:
-            reply_to_save_request({"error": "Choose Save as project to select a file."})
+            reply = reply_to_pdf_request if action in ("save-pdf-as", "move-pdf", "open-pdf") else reply_to_save_request
+            reply({"error": "Choose Save as project to select a file."})
     except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as error:
         print("Fieldplan native save error:", error, flush=True)
-        reply_to_save_request({"error": "Unable to save project: " + str(error)})
+        reply = reply_to_pdf_request if action in ("save-pdf-as", "move-pdf", "open-pdf") else reply_to_save_request
+        reply({"error": "Unable to save file: " + str(error)})
 
 
 def destroy(*args):

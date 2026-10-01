@@ -24,14 +24,14 @@ Fieldplan deliberately uses WebKit's software compositing mode on this machine. 
 
 ## Everyday workflow
 
-1. **New project** sets the name and initial date.
+1. **New project** sets the name and initial date, then asks where to save the new `.fieldplan` file.
 2. Add a **Phase**, **Task**, or **Milestone**. Selecting a phase before adding inserts a child; selecting a task inserts its next sibling.
 3. Edit task cells. Weekday abbreviations appear before each start and finish date. **More columns** exposes owners, colors, and scheduling mode.
 4. To create a dependency, select the predecessor, Ctrl-click the successor, then right-click either selected row and choose **Make dependent**. A fixed-date successor shifts right when needed. Right-click a linked task and choose **Break dependency** to remove its link while keeping its current dates. Existing links remain visible as arrows in the Gantt chart.
 5. Use **Indent / Outdent** for the outline. Phases calculate their dates from children. Collapse a phase with its triangle.
 6. Choose **Fit timeline**, Day, Week, or Month. Drag an ordinary task bar or milestone to move it; automatic dependencies may constrain its new date.
 7. **Save project** (Ctrl+S) opens a Linux file chooser the first time, then saves back to the selected file. **Save as project** always opens the chooser to select a folder and filename. **Open project** lists saved plans and can read another `.fieldplan` or JSON project.
-8. **Export PDF** writes under `exports/`. Set the PDF name, which controls both its on-page title and filename, then choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates.
+8. **Export PDF** lets you preview the actual rendered pages before creating the file. Set the PDF name, which controls both its on-page title and filename, then choose dates, day/week/month scale, 11 × 17 in (Tabloid), 8.5 × 14 in (Legal), A3, or A4 paper; orientation, columns, compact/comfortable rows, grayscale, and milestone dates. **Create PDF** asks where to save the finished file.
 
 The app opens a clean untitled project. Use **Open project** to return to a saved plan. Save is explicit; unsaved changes are protected by prompts when switching projects or closing the native window. Undo retains up to 60 edits within the current session. Deleting a phase also removes its children and incoming references, with confirmation and undo.
 
